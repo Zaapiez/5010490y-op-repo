@@ -1,0 +1,42 @@
+pipeline {
+    agent any
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/zaapiez/5010490y-op-repo.git'
+            }
+        }
+        stage('QA Deploy') {
+            steps {
+                sh "bolt script run 5010490y_script --targets 5010490y-qa-svr"
+            }
+        }
+        stage('QA Test') {
+            steps {
+                sh "curl -Is http://localhost:33200 | head -n 1 > /tmp/qa-result-file"
+                sh "cat /tmp/qa-result-file"
+            }
+        }
+        stage('QA Rollback') {
+            steps {
+                echo 'Rollback logic for QA here'
+            }
+        }
+        stage('Prod Deploy') {
+            steps {
+                sh "bolt script run 5010490y_script --targets 5010490y-prod-svr"
+            }
+        }
+        stage('Prod Test') {
+            steps {
+                sh "curl -Is http://localhost:33500 | head -n 1 > /tmp/prod-result-file"
+                sh "cat /tmp/prod-result-file"
+            }
+        }
+        stage('Prod Rollback') {
+            steps {
+                echo 'Rollback logic for Prod here'
+            }
+        }
+    }
+}
