@@ -2,9 +2,36 @@ pipeline {
     agent any
 
     stages {
-        stage('Setup') {
+        stage('Op-5010490y-S1') {
             steps {
-                echo '🔧 Setup stage: initializing environment...'
+                script {
+                    echo "Op-S1-5010490y: Starting QA backup and update process"
+
+                    // Remove old QA backup image if it exists
+                    sh '''
+                    if docker images | grep -q qa_bkup_image; then
+                        docker rmi -f qa_bkup_image
+                        echo "Old QA backup image removed"
+                    else
+                        echo "No existing QA backup image found"
+                    fi
+                    '''
+
+                    // Create new QA backup image
+                    sh '''
+                    docker commit 5010490y-qa-svr qa_bkup_image
+                    echo "New QA backup image created"
+                    '''
+
+                    // Run Bolt script to update index.html
+                    sh '''
+                    bolt script run /path/to/5010490y_script \
+                        --targets 5010490y-qa-svr.localdomain \
+                        --no-host-key-check
+                    '''
+
+                    echo "Op-S1-5010490y: QA web server is backup and updated"
+                }
             }
         }
         stage('Build') {
