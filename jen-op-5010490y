@@ -3,7 +3,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/zaapiez/5010490y-op-repo.git'
+                git 'https://zaapiez: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@github.com/zaapiez/5010490y-op-repo.git'
             }
         }
         stage('QA Deploy') {
