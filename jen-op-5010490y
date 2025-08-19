@@ -32,4 +32,4 @@ pipeline {
                 echo '✅ Validate stage: confirming everything works!'
             }
         }
-    
+ }   
