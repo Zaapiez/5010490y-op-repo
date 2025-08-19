@@ -1,0 +1,13 @@
+#!/bin/bash
+puppet resource package apache2 ensure=installed
+puppet resource service apache2 ensure=running enable=true
+
+puppet resource file /operate/5010490y ensure=absent
+puppet resource file /operate/5010490y ensure=directory
+
+cd /operate/5010490y
+git clone https://github.com/zaapiez/5010490y-op-repo.git .
+
+puppet resource file /var/www/html/index.html \
+  ensure=file \
+  source=/operate/5010490y/index-op-5010490y.html
