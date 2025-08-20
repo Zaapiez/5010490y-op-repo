@@ -1,71 +1,72 @@
 pipeline {
     agent any
-
+    triggers {
+        pollSCM('*/2 * * * *')
+    }
     stages {
-        stage('Checkout SCM') {
+        stage('Op-5010490y-S1') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/<your account>/5010490y-op-repo.git'
+                sh 'docker rmi qa_bkup_image || true'
+                sh 'docker commit 5010490y-qa-svr qa_bkup_image'
+                sh "bolt script run '/operate/5010490y/5010490y_script' --targets 5010490y-qa-svr.localdomain"
+                echo 'Op-S1-5010490y: QA web server is backup and updated'
             }
         }
-
-        stage('Deploy to QA Server') {
+        stage('Op-5010490y-S2') {
             steps {
-                sh '''
-                bolt script run 5010490y_script \
-                --targets 5010490y-qa-svr
-                '''
+                sh 'curl -Is http://localhost:33200 | head -n 1 > /tmp/qa-result-file'
+                sh 'cat /tmp/qa-result-file'
+                echo 'Op-5010490y-S2: Checking on whether QA server is running after update'
             }
         }
-
-        stage('Web Test QA') {
-            steps {
-                sh '''
-                curl -Is http://localhost:33200 | head -n 1 > /tmp/qa-result-file
-                cat /tmp/qa-result-file
-                grep "200 OK" /tmp/qa-result-file
-                '''
-            }
-        }
-
-        stage('Approval for Prod Deployment') {
-            steps {
-                input message: "Proceed with deployment to PROD?"
-            }
-        }
-
-        stage('Deploy to Prod Server') {
-            steps {
-                sh '''
-                bolt script run 5010490y_script \
-                --targets 5010490y-prod-svr
-                '''
-            }
-        }
-
-        stage('Web Test Prod') {
-            steps {
-                sh '''
-                curl -Is http://localhost:33500 | head -n 1 > /tmp/prod-result-file
-                cat /tmp/prod-result-file
-                grep "200 OK" /tmp/prod-result-file
-                '''
-            }
-        }
-
-        stage('Rollback if Failure') {
+        stage('Op-5010490y-S3') {
             steps {
                 script {
-                    def qa_status = sh(script: "grep '200 OK' /tmp/qa-result-file || echo FAIL", returnStdout: true).trim()
-                    def prod_status = sh(script: "grep '200 OK' /tmp/prod-result-file || echo FAIL", returnStdout: true).trim()
-
-                    if (qa_status == "FAIL") {
-                        sh "echo 'Rolling back QA server...' && git checkout HEAD~1 index-op-5010490y.html && bolt script run 5010490y_script --targets 5010490y-qa-svr"
-                    }
-                    if (prod_status == "FAIL") {
-                        sh "echo 'Rolling back Prod server...' && git checkout HEAD~1 index-op-5010490y.html && bolt script run 5010490y_script --targets 5010490y-prod-svr"
+                    def result = sh(script: "grep 'HTTP/1.1 200 OK' /tmp/qa-result-file", returnStatus: true)
+                    if (result == 0) {
+                        echo 'Op-5010490y-S3: Proceed to roll out to Prod server'
+                    } else {
+                        sh 'docker stop 5010490y-qa-svr && docker rm 5010490y-qa-svr'
+                        sh 'docker run -dit --name 5010490y-qa-svr --hostname 5010490y-qa-svr.localdomain --network 5010490y-net --ip 192.168.100.110 -p 33200:80 qa_bkup_image'
+                        echo 'Op-5010490y-S3: QA server fails after update and is rolled back'
+                        error('Aborting')
                     }
                 }
+            }
+        }
+        stage('Op-5010490y-S4') {
+            steps {
+                sh 'docker rmi prod_bkup_image || true'
+                sh 'docker commit 5010490y-prod-svr prod_bkup_image'
+                sh "bolt script run '/operate/5010490y/5010490y_script' --targets 5010490y-prod-svr.localdomain"
+                echo 'Op-5010490y-S4: prod web server is backup and updated'
+            }
+        }
+        stage('Op-5010490y-S5') {
+            steps {
+                sh 'curl -Is http://localhost:33500 | head -n 1 > /tmp/prod-result-file'
+                sh 'cat /tmp/prod-result-file'
+                echo 'Op-5010490y-S5: Checking on whether Prod server is running after update'
+            }
+        }
+        stage('Op-5010490y-S6') {
+            steps {
+                script {
+                    def result = sh(script: "grep 'HTTP/1.1 200 OK' /tmp/prod-result-file", returnStatus: true)
+                    if (result == 0) {
+                        echo 'Op-5010490y-S6: Proceed to release Prod web server to production'
+                    } else {
+                        sh 'docker stop 5010490y-prod-svr && docker rm 5010490y-prod-svr'
+                        sh 'docker run -dit --name 5010490y-prod-svr --hostname 5010490y-prod-svr.localdomain --network 5010490y-net --ip 192.168.100.220 -p 33500:80 prod_bkup_image'
+                        echo 'Op-5010490y-S6: Prod web server is rolled back'
+                        error('Aborting')
+                    }
+                }
+            }
+        }
+        stage('Op-5010490y-S7') {
+            steps {
+                echo 'Op-5010490y-S7: Prod web server is monitored and ready to serve.'
             }
         }
     }
