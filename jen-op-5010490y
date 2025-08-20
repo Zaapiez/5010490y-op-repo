@@ -2,62 +2,71 @@ pipeline {
     agent any
 
     stages {
-        stage('Op-5010490y-S1') {
+        stage('Checkout SCM') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/<your account>/5010490y-op-repo.git'
+            }
+        }
+
+        stage('Deploy to QA Server') {
+            steps {
+                sh '''
+                bolt script run 5010490y_script \
+                --targets 5010490y-qa-svr
+                '''
+            }
+        }
+
+        stage('Web Test QA') {
+            steps {
+                sh '''
+                curl -Is http://localhost:33200 | head -n 1 > /tmp/qa-result-file
+                cat /tmp/qa-result-file
+                grep "200 OK" /tmp/qa-result-file
+                '''
+            }
+        }
+
+        stage('Approval for Prod Deployment') {
+            steps {
+                input message: "Proceed with deployment to PROD?"
+            }
+        }
+
+        stage('Deploy to Prod Server') {
+            steps {
+                sh '''
+                bolt script run 5010490y_script \
+                --targets 5010490y-prod-svr
+                '''
+            }
+        }
+
+        stage('Web Test Prod') {
+            steps {
+                sh '''
+                curl -Is http://localhost:33500 | head -n 1 > /tmp/prod-result-file
+                cat /tmp/prod-result-file
+                grep "200 OK" /tmp/prod-result-file
+                '''
+            }
+        }
+
+        stage('Rollback if Failure') {
             steps {
                 script {
-                    echo "Op-S1-5010490y: Starting QA backup and update process"
+                    def qa_status = sh(script: "grep '200 OK' /tmp/qa-result-file || echo FAIL", returnStdout: true).trim()
+                    def prod_status = sh(script: "grep '200 OK' /tmp/prod-result-file || echo FAIL", returnStdout: true).trim()
 
-                    // Remove old QA backup image if it exists
-                    sh '''
-                    if docker images | grep -q qa_bkup_image; then
-                        docker rmi -f qa_bkup_image
-                        echo "Old QA backup image removed"
-                    else
-                        echo "No existing QA backup image found"
-                    fi
-                    '''
-
-                    // Create new QA backup image
-                    sh '''
-                    docker commit 5010490y-qa-svr qa_bkup_image
-                    echo "New QA backup image created"
-                    '''
-
-                    // Run Bolt script to update index.html
-                    sh '''
-                    bolt script run /path/to/5010490y_script \
-                        --targets 5010490y-qa-svr.localdomain \
-                        --no-host-key-check
-                    '''
-
-                    echo "Op-S1-5010490y: QA web server is backup and updated"
+                    if (qa_status == "FAIL") {
+                        sh "echo 'Rolling back QA server...' && git checkout HEAD~1 index-op-5010490y.html && bolt script run 5010490y_script --targets 5010490y-qa-svr"
+                    }
+                    if (prod_status == "FAIL") {
+                        sh "echo 'Rolling back Prod server...' && git checkout HEAD~1 index-op-5010490y.html && bolt script run 5010490y_script --targets 5010490y-prod-svr"
+                    }
                 }
             }
         }
-        stage('Build') {
-            steps {
-                echo '🏗️ Build stage: compiling or preparing artifacts...'
-            }
-        }
-        stage('Deploy') {
-            steps {
-                echo '🚀 Deploy stage: simulating deployment...'
-            }
-        }
-        stage('Configure') {
-            steps {
-                echo '⚙️ Configure stage: applying configuration...'
-            }
-        }
-        stage('Monitor') {
-            steps {
-                echo '📈 Monitor stage: checking system health...'
-            }
-        }
-        stage('Validate') {
-            steps {
-                echo '✅ Validate stage: confirming everything works!'
-            }
-        }
- }   
+    }
 }
