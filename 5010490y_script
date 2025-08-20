@@ -1,11 +1,18 @@
-#!/bin/bash
+echo "Installing Apache2 and Git..."
 puppet resource package apache2 ensure=installed
+puppet resource package git ensure=installed
 puppet resource service apache2 ensure=running enable=true
 
+echo "Cleaning and preparing /operate/5010490y..."
 rm -rf /operate/5010490y
 mkdir -p /operate/5010490y
-
 cd /operate/5010490y
-git clone https://zaapiez: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@github.com/zaapiez/5010490y-op-repo.git .
 
+echo "Cloning repo..."
+git clone https://github.com/zaapiez/5010490y-op-repo.git .
+
+echo "Replacing index.html..."
+mkdir -p /var/www/html
 cp /operate/5010490y/index-op-5010490y.html /var/www/html/index.html
+
+echo "Script execution completed."
