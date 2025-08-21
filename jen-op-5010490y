@@ -2,8 +2,8 @@ pipeline {
     agent any
     environment {
         REPO_URL = 'https://zaapiez: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@github.com/zaapiez/5010490y-op-repo.git'
-        CLONE_DIR = '/operate/5010490y'
-        SCRIPT_PATH = '/operate/5010490y/5010490y_script'
+        CLONE_DIR = '/tmp/operate/5010490y'
+        SCRIPT_PATH = '/tmp/operate/5010490y/5010490y_script'
     }
     stages {
         stage('Op-5010490y-S1') {
