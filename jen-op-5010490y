@@ -1,27 +1,16 @@
 pipeline {
     agent any
     environment {
-        REPO_URL = 'https://zaapiez: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@github.com/zaapiez/5010490y-op-repo.git'
-        CLONE_DIR = '/tmp/operate/5010490y'
-        SCRIPT_PATH = '/tmp/operate/5010490y/5010490y_script'
+        REPO_URL = 'https://github.com/zaapiez/5010490y-op-repo.git'
+        CLONE_DIR = '/tmp/5010490y'
+        SCRIPT_PATH = '/tmp/5010490y/5010490y_script'
     }
     stages {
         stage('Op-5010490y-S1') {
             steps {
-                echo '🔧 Removing old QA backup image (if exists)...'
-                sh 'docker rmi qa_bkup_image || true'
-
-                echo '📦 Creating new QA backup image...'
-                sh 'docker commit 5010490y-qa-svr qa_bkup_image'
-
-                echo '📁 Cloning GitHub repo into correct folder...'
                 sh "rm -rf ${CLONE_DIR} && mkdir -p ${CLONE_DIR}"
                 sh "git clone ${REPO_URL} ${CLONE_DIR}"
-
-                echo '⚡ Executing Bolt script on QA container...'
                 sh "bolt script run '${SCRIPT_PATH}' --targets 5010490y-qa-svr.localdomain -u qaadmin -p password --no-host-key-check --run-as root"
-
-                echo '✅ Op-S1-5010490y: QA web server is backup and updated'
             }
         }
     }
