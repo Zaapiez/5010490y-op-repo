@@ -11,14 +11,14 @@ pipeline {
                 sh "rm -rf ${CLONE_DIR} && mkdir -p ${CLONE_DIR}"
                 sh "git clone ${REPO_URL} ${CLONE_DIR}"
                 sh "bolt script run '${SCRIPT_PATH}' --targets 5010490y-qa-svr.localdomain -u qaadmin -p password --no-host-key-check --run-as root"
-                echo '✅ Op-S1-5010490y: QA web server is backup and updated'
+                echo 'Op-S1-5010490y: QA web server is backup and updated'
             }
         }
         stage('Op-5010490y-S2') {
             steps {
                 sh 'curl -Is http://localhost:33200 | head -n 1 > /tmp/qa-result-file'
                 sh 'cat /tmp/qa-result-file'
-                echo '🔍 Op-5010490y-S2: Checking on whether QA server is running after update'
+                echo 'Op-5010490y-S2: Checking on whether QA server is running after update'
             }
         }
         stage('Op-5010490y-S3') {
@@ -28,27 +28,79 @@ pipeline {
                     
                     if (result == 0) {
                         def userChoice = input(
-                            id: 'UserInput', message: 'QA server passed. What do you want to do next?',
+                            id: 'UserInputQA', message: 'QA server passed. What do you want to do next?',
                             parameters: [
                                 choice(name: 'Action', choices: ['Proceed to Prod', 'Rollback QA'], description: 'Choose your next step')
                             ]
                         )
 
                         if (userChoice == 'Proceed to Prod') {
-                            echo '🚀 Op-5010490y-S3: Proceed to roll out to Prod server'
+                            echo 'Op-5010490y-S3: Proceed to roll out to Prod server'
                         } else {
-                            echo '⛔ Op-5010490y-S3: QA server is rolled back by user choice'
+                            echo 'Op-5010490y-S3: QA server is rolled back by user choice'
                             sh 'docker stop 5010490y-qa-svr && docker rm 5010490y-qa-svr'
                             sh 'docker run -dit --name 5010490y-qa-svr --hostname 5010490y-qa-svr.localdomain --network sg-evstar --ip 192.168.100.110 -p 33200:80 qa_bkup_image'
                             error('Pipeline aborted due to rollback choice')
                         }
                     } else {
-                        echo '❌ Op-5010490y-S3: QA server failed health check and is rolled back automatically'
+                        echo 'Op-5010490y-S3: QA server failed health check and is rolled back automatically'
                         sh 'docker stop 5010490y-qa-svr && docker rm 5010490y-qa-svr'
                         sh 'docker run -dit --name 5010490y-qa-svr --hostname 5010490y-qa-svr.localdomain --network sg-evstar --ip 192.168.100.110 -p 33200:80 qa_bkup_image'
                         error('Pipeline aborted due to QA failure')
                     }
                 }
+            }
+        }
+        stage('Op-5010490y-S4') {
+            steps {
+                sh 'docker rmi prod_bkup_image || true'
+                sh 'docker commit 5010490y-prod-svr prod_bkup_image'
+                sh "rm -rf ${CLONE_DIR} && mkdir -p ${CLONE_DIR}"
+                sh "git clone ${REPO_URL} ${CLONE_DIR}"
+                sh "bolt script run '${SCRIPT_PATH}' --targets 5010490y-prod-svr.localdomain -u prodadmin -p password --no-host-key-check --run-as root"
+                echo 'Op-5010490y-S4: Prod web server is backup and updated'
+            }
+        }
+        stage('Op-5010490y-S5') {
+            steps {
+                sh 'curl -Is http://localhost:33500 | head -n 1 > /tmp/prod-result-file'
+                sh 'cat /tmp/prod-result-file'
+                echo 'Op-5010490y-S5: Checking on whether Prod server is running after update'
+            }
+        }
+        stage('Op-5010490y-S6') {
+            steps {
+                script {
+                    def result = sh(script: "grep 'HTTP/1.1 200 OK' /tmp/prod-result-file", returnStatus: true)
+
+                    if (result == 0) {
+                        def userChoice = input(
+                            id: 'UserInputProd', message: 'Prod server passed. What do you want to do next?',
+                            parameters: [
+                                choice(name: 'Action', choices: ['Release to Production', 'Rollback Prod'], description: 'Choose your next step')
+                            ]
+                        )
+
+                        if (userChoice == 'Release to Production') {
+                            echo 'Op-5010490y-S6: Proceed to release Prod web server to production'
+                        } else {
+                            echo 'Op-5010490y-S6: Prod server is rolled back by user choice'
+                            sh 'docker stop 5010490y-prod-svr && docker rm 5010490y-prod-svr'
+                            sh 'docker run -dit --name 5010490y-prod-svr --hostname 5010490y-prod-svr.localdomain --network sg-evstar --ip 192.168.100.220 -p 33500:80 prod_bkup_image'
+                            error('Pipeline aborted due to rollback choice')
+                        }
+                    } else {
+                        echo 'Op-5010490y-S6: Prod server failed health check and is rolled back automatically'
+                        sh 'docker stop 5010490y-prod-svr && docker rm 5010490y-prod-svr'
+                        sh 'docker run -dit --name 5010490y-prod-svr --hostname 5010490y-prod-svr.localdomain --network sg-evstar --ip 192.168.100.220 -p 33500:80 prod_bkup_image'
+                        error('Pipeline aborted due to Prod failure')
+                    }
+                }
+            }
+        }
+        stage('Op-5010490y-S7') {
+            steps {
+                echo '📈 Op-5010490y-S7: Prod web server is monitored and ready to serve.'
             }
         }
     }
