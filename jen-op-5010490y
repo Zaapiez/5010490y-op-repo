@@ -11,6 +11,29 @@ pipeline {
                 sh "rm -rf ${CLONE_DIR} && mkdir -p ${CLONE_DIR}"
                 sh "git clone ${REPO_URL} ${CLONE_DIR}"
                 sh "bolt script run '${SCRIPT_PATH}' --targets 5010490y-qa-svr.localdomain -u qaadmin -p password --no-host-key-check --run-as root"
+                echo '✅ Op-S1-5010490y: QA web server is backup and updated'
+            }
+        }
+        stage('Op-5010490y-S2') {
+            steps {
+                sh 'curl -Is http://localhost:33200 | head -n 1 > /tmp/qa-result-file'
+                sh 'cat /tmp/qa-result-file'
+                echo '🔍 Op-5010490y-S2: Checking on whether QA server is running after update'
+            }
+        }
+        stage('Op-5010490y-S3') {
+            steps {
+                script {
+                    def result = sh(script: "grep 'HTTP/1.1 200 OK' /tmp/qa-result-file", returnStatus: true)
+                    if (result == 0) {
+                        echo '🚀 Op-5010490y-S3: Proceed to roll out to Prod server'
+                    } else {
+                        echo '⛔ Op-5010490y-S3: QA server fails after update and is rolled back'
+                        sh 'docker stop 5010490y-qa-svr && docker rm 5010490y-qa-svr'
+                        sh 'docker run -dit --name 5010490y-qa-svr --hostname 5010490y-qa-svr.localdomain --network sg-evstar --ip 192.168.100.110 -p 33200:80 qa_bkup_image'
+                        error('Aborting pipeline due to QA failure')
+                    }
+                }
             }
         }
     }
