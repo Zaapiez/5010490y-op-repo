@@ -30,14 +30,14 @@ pipeline {
                         def userChoice = input(
                             id: 'UserInputQA', message: 'QA server passed. What do you want to do next?',
                             parameters: [
-                                choice(name: 'Action', choices: ['Proceed to Prod', 'Rollback QA'], description: 'Choose your next step')
+                                choice(name: 'Action', choices: ['Proceed to Roll out to Prod server', 'Roll back QA server'], description: 'Choose your next step')
                             ]
                         )
 
                         if (userChoice == 'Proceed to Prod') {
                             echo 'Op-5010490y-S3: Proceed to roll out to Prod server'
                         } else {
-                            echo 'Op-5010490y-S3: QA server is rolled back by user choice'
+                            echo 'Op-5010490y-S3: QA server fails after update and is rolled back'
                             sh 'docker stop 5010490y-qa-svr && docker rm 5010490y-qa-svr'
                             sh 'docker run -dit --name 5010490y-qa-svr --hostname 5010490y-qa-svr.localdomain --network sg-evstar --ip 192.168.100.110 -p 33200:80 qa_bkup_image'
                             error('Pipeline aborted due to rollback choice')
@@ -77,14 +77,14 @@ pipeline {
                         def userChoice = input(
                             id: 'UserInputProd', message: 'Prod server passed. What do you want to do next?',
                             parameters: [
-                                choice(name: 'Action', choices: ['Release to Production', 'Rollback Prod'], description: 'Choose your next step')
+                                choice(name: 'Action', choices: ['Proceed to release Prod web server to production', 'Roll back Prod web server'], description: 'Choose your next step')
                             ]
                         )
 
                         if (userChoice == 'Release to Production') {
                             echo 'Op-5010490y-S6: Proceed to release Prod web server to production'
                         } else {
-                            echo 'Op-5010490y-S6: Prod server is rolled back by user choice'
+                            echo 'Op-5010490y-S6: Prod web server is rolled back'
                             sh 'docker stop 5010490y-prod-svr && docker rm 5010490y-prod-svr'
                             sh 'docker run -dit --name 5010490y-prod-svr --hostname 5010490y-prod-svr.localdomain --network sg-evstar --ip 192.168.100.220 -p 33500:80 prod_bkup_image'
                             error('Pipeline aborted due to rollback choice')
