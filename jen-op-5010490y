@@ -100,8 +100,8 @@ pipeline {
         }
         stage('Op-5010490y-S7') {
             steps {
-                echo '📈 Op-5010490y-S7: Prod web server is monitored and ready to serve.'
+                echo 'Op-5010490y-S7: Prod web server is monitored and ready to serve.'
             }
         }
     }
-}
+
