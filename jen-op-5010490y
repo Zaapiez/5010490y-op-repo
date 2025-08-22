@@ -14,13 +14,13 @@ pipeline {
                 echo 'Op-S1-5010490y: QA web server is backup and updated'
             }
         }
-        stage('Op-5010490y-S2') 
-            steps {
-                sh 'curl -Is http://localhost:33200 | head -n 1 > /tmp/qa-result-file'
-                sh 'cat /tmp/qa-result-file'
-                echo 'Op-5010490y-S2: Checking on whether QA server is running after update'
-            }
-        }
+    stage('Op-5010490y-S2') {
+        steps {
+            sh 'curl -Is http://localhost:33200 | head -n 1 > /tmp/qa-result-file'
+            sh 'cat /tmp/qa-result-file'
+            echo 'Op-5010490y-S2: Checking on whether QA server is running after update'
+    }
+}
         stage('Op-5010490y-S3') {
             steps {
                 script {
@@ -104,4 +104,4 @@ pipeline {
             }
         }
     }
-
+}
