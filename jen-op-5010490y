@@ -8,6 +8,8 @@ pipeline {
     stages {
         stage('Op-5010490y-S1') {
             steps {
+                sh 'docker rmi qa_bkup_image || true'
+                sh 'docker commit 5010490y-qa-svr qa_bkup_image'
                 sh "rm -rf ${CLONE_DIR} && mkdir -p ${CLONE_DIR}"
                 sh "git clone ${REPO_URL} ${CLONE_DIR}"
                 sh "bolt script run '${SCRIPT_PATH}' --targets 5010490y-qa-svr.localdomain -u qaadmin -p password --no-host-key-check --run-as root"
